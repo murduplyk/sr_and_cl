@@ -1,0 +1,22 @@
+{
+  "Users": [
+    {
+      "userName": "user",
+      "passwd": "pass",
+      "account number": "32567453",
+      "amount of money": 0
+    },
+    {
+      "userName": "Eragorn",
+      "passwd": "password",
+      "account number": "19613446",
+      "amount of money": 4960
+    },
+    {
+      "userName": "pavlik",
+      "passwd": "qwerty228",
+      "account number": "16424242",
+      "amount of money": 5000
+    }
+  ]
+}
