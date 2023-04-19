@@ -1,4 +1,6 @@
-import socket, re, getpass, sys
+import getpass
+import socket
+import sys
 
 ADDR = ('localhost', 50007)
 FORMAT = 'utf-8'
@@ -30,38 +32,6 @@ def get_preordained_msg(massage_length: int = 1) -> str:
     return CLIENT.recv(massage_length).decode(FORMAT)
 
 
-def user_creation_request():
-    user_name_pattern = r'^[a-zA-Z0-9_-]{3,20}$'
-
-    # username
-    while True:
-        user_name = input('user name: ')
-        if not re.match(user_name_pattern, user_name):
-            print('you can use letters of the Latin alphabet, numbers and symbols _ - ')
-            print('name length must not be less than 3 or more than 20 characters')
-            continue
-
-        send_msg(user_name)
-        user_exist = get_preordained_msg()
-        if user_exist == 'Y':
-            break
-        else:
-            print('user exist, please enter other user name')
-
-    # password
-    while True:
-        user_password = getpass.getpass('password: ')
-
-        if len(user_password) > 20 or len(user_password) < 6:
-            print('valid password length from 6 to 20 characters')
-        else:
-            break
-
-    send_msg(user_password)
-
-    print('user created!')
-
-
 def user_authorization_request() -> list:
     user_not_found = True
 
@@ -72,7 +42,7 @@ def user_authorization_request() -> list:
         if get_preordained_msg() == 'Y':
             user_not_found = False
         else:
-            print('user not fount')
+            print('user not found')
 
     while True:
         user_password = getpass.getpass('password: ')
@@ -82,7 +52,7 @@ def user_authorization_request() -> list:
             return [get_preordained_msg(8), get_msg()]
 
 
-def top_up_balance():
+def top_up_balance_request():
     amount = input('amount: ')
 
     while not amount.isdigit():
@@ -92,19 +62,18 @@ def top_up_balance():
 
 
 def send_money_request():
-    pattern = r'^[0-9]{8}$'
     user_doesnt_exist = True
 
     while user_doesnt_exist:
         number_to_transfer = input('transfer to nb account: ')
-        while not re.match(pattern, number_to_transfer):
-            print('The transfer number must contain 8 digits')
+        while not number_to_transfer.isdigit() and not len(number_to_transfer) <= 8:
+            print('The account number must contain 8 digits')
             number_to_transfer = input('transfer to nb account: ')
         send_preordained_msg(number_to_transfer)
         if get_preordained_msg() == 'Y':
             user_doesnt_exist = False
         else:
-            print('user not fount')
+            print('user not found')
 
     while True:
         money = input('amount of money to transfer: ')
@@ -143,31 +112,20 @@ try:
 
     connected = True
     user = []
-
+except ConnectionRefusedError:
+    print('server can be turned off or changed address\nplease try again later')
+    getpass.getpass('press enter')
+    sys.exit(0)
+try:
     print(' text `!help` if your firts time in our sevice:)')
     while connected:
-        request = input('enter the command: ')
         if not user:
-            if request == '!help':
-                print('!create       - create an user\n'
-                      '!authorization - user authorization\n'
-                      '!disconnect    - disconnect from server')
-            elif request == '!create':
-                send_msg('create user')
-                user_creation_request()
-            elif request == '!authorization':
-                send_msg('authorization')
-                user = user_authorization_request()
-                print(f'user number: {user[0]}')
-                print(f'amount of money in the account {user[1]}')
-            elif request == '!disconnect':
-                send_msg('DISCONNECT')
-                connected = False
-                print('you disconnected from the server')
-            else:
-                print('No such command exist, try again')
-
+            send_msg('authorization')
+            user = user_authorization_request()
+            print(f'user number: {user[0]}')
+            print(f'amount of money in the account {user[1]}')
         else:
+            request = input('enter the command: ')
             if request == '!help':
                 print('!send      - send money to another user\n'
                       '!ch        - check amount of money in the account\n'
@@ -182,7 +140,7 @@ try:
                 check_money()
             elif request == '!topup':
                 send_msg('top up')
-                top_up_balance()
+                top_up_balance_request()
             elif request == '!withdraw':
                 send_msg('withdraw')
                 withdraw()  # //
@@ -192,6 +150,6 @@ try:
                 print('you disconnected from the server')
             else:
                 print('No such command exist, try again')
-except ConnectionResetError or ConnectionResetError:
+except ConnectionResetError:
     print('server can be turned off or changed address\nplease try again later')
-    sys.exit(0)
+    getpass.getpass('press enter')

@@ -12,7 +12,8 @@ SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 SERVER.bind((ADDR))
 
 
-def send_msg(conn, msg: str):
+def send_msg(conn,
+             msg: str):
     message = msg.encode(FORMAT)
     msg_length = len(message)
     send_length = str(msg_length).encode(FORMAT)
@@ -22,7 +23,8 @@ def send_msg(conn, msg: str):
     conn.send(message)
 
 
-def send_preordained_msg(conn, msg: str):
+def send_preordained_msg(conn,
+                         msg: str):
     conn.send(msg.encode(FORMAT))
 
 
@@ -31,11 +33,13 @@ def get_msg(conn) -> str:
     return conn.recv(massage_length).decode(FORMAT)
 
 
-def get_preordained_msg(conn, massage_length: int) -> str:
+def get_preordained_msg(conn,
+                        massage_length: int) -> str:
     return conn.recv(massage_length).decode(FORMAT)
 
 
-def find_user(find_by: str, find):
+def find_user(find_by: str,
+              find):
     with open(ACCOUNTS_DATA) as f:
         data = json.load(f)
     user = [user for user in data["Users"] if user[find_by] == find]
@@ -45,13 +49,14 @@ def find_user(find_by: str, find):
         return None
 
 
-def create_user(conn, addr):
+def create_user(conn,
+                addr):
     # username
     while True:
         user_name = get_msg(conn)
         print(f'[{addr[0]}]user name: {user_name}')
 
-        if not find_user('userName', user_name):
+        if not find_user('user name', user_name):
             send_preordained_msg(conn, 'Y')
             break
         else:
@@ -67,8 +72,8 @@ def create_user(conn, addr):
 
     # create user
     user = {
-        "userName": f"{user_name}",
-        "passwd": f"{user_pass}",
+        "user name": f"{user_name}",
+        "password": f"{user_pass}",
         "account number": f"{account_number}",
         "amount of money": 0
     }
@@ -80,12 +85,64 @@ def create_user(conn, addr):
         json.dump(data, f, indent=2)
 
 
+def delete_user(conn):
+    while True:
+        account_number = get_msg(conn)
+        user = find_user("account number", account_number)
+        if user:
+            send_preordained_msg(conn, 'Y')
+        else:
+            send_preordained_msg(conn, 'N')
+            continue
+
+        if get_preordained_msg(conn, 1):
+            break
+
+        with open('Server/Accounts.json') as f:
+            data = json.load(f)
+        try:
+            user_index = data['Users'].index(user)
+            del data['Users'][user_index]
+
+            with open('Server/Accounts.json', 'w') as f:
+                json.dump(data, f, indent=2)
+        except ValueError:
+            send_msg(conn, 'User not found or has already been deleted')
+            break
+        send_msg(conn, 'User deleted')
+
+
+def change_user_data(conn):
+    while True:
+        find_by = get_msg(conn)
+        find = get_msg(conn)
+
+        if find_user(find_by, find):
+            send_preordained_msg(conn, 'Y')
+            break
+        else:
+            send_preordained_msg(conn, 'N')
+
+    change_by = get_msg(conn)
+    change = get_msg(conn)
+
+    with open(ACCOUNTS_DATA) as f:
+        data = json.load(f)
+    for user in data['Users']:
+        if user[find_by] == find:
+            user[change_by] = change if change_by == 'password' \
+                else int(change)
+            break
+    with open(ACCOUNTS_DATA, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
 def authorization_user(conn):
     user_not_found = True
     user_data = {}
     while user_not_found:
         user_name = get_msg(conn)
-        user_data = find_user('userName', user_name)
+        user_data = find_user('user name', user_name)
 
         if user_data:
             send_preordained_msg(conn, 'Y')
@@ -98,7 +155,7 @@ def authorization_user(conn):
     while incorrect_password:
         user_password = get_msg(conn)
 
-        if user_data['passwd'] == user_password:
+        if user_data['password'] == user_password:
             incorrect_password = False
             send_preordained_msg(conn, 'Y')
             send_preordained_msg(conn, user_data['account number'])
@@ -174,6 +231,20 @@ def withdraw(conn, account_number):
         json.dump(users, f, indent=2)
 
 
+def admin_authorization(conn):
+    while True:
+        if get_msg(conn) == 'admin':
+            send_preordained_msg(conn, 'Y')
+            break
+        send_preordained_msg(conn, 'N')
+
+    while True:
+        if get_msg(conn) == 'admin':
+            send_preordained_msg(conn, 'Y')
+            break
+        send_preordained_msg(conn, 'N')
+
+
 def handle_client(conn, addr):
     account_number = None
     connected = True
@@ -185,6 +256,10 @@ def handle_client(conn, addr):
             connected = False
         elif msg == 'create user':
             create_user(conn, addr)
+        elif msg == 'delete':
+            delete_user(conn)
+        elif msg == 'change data':
+            change_user_data(conn)
         elif msg == 'authorization':
             account_number = authorization_user(conn)
         elif msg == 'top up':
@@ -195,6 +270,8 @@ def handle_client(conn, addr):
             check_money(conn, account_number)
         elif msg == 'withdraw':
             withdraw(conn, account_number)
+        elif msg == 'admin':
+            admin_authorization(conn)
 
 
 def start():
@@ -207,5 +284,6 @@ def start():
             f'{addr} is connected\nCount of active conection {threading.active_count() - 1}\n')
 
 
-print(f'server is starting...')
-start()
+if __name__ == '__main__':
+    print(f'server is starting...')
+    start()
